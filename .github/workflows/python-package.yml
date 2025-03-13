@@ -6,6 +6,31 @@ name: Python package
 on: [push, pull_request]
 
 jobs:
+  collab-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      approval-env: ${{ steps.collab-check.outputs.result }}
+    steps:
+      - name: Collaborator Check
+        uses: actions/github-script@v7
+        id: collab-check
+        with:
+          github-token: ${{ secrets.COLLAB_CHECK_TOKEN }}
+          result-encoding: string
+          script: |
+            try {
+              const res = await github.rest.repos.checkCollaborator({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: "${{ github.event.pull_request.user.login }}",
+              });
+              console.log("Verified ${{ github.event.pull_request.user.login }} is a repo collaborator. Auto Approving PR Checks.")
+              return res.status == "204" ? "auto-approve" : "manual-approval"
+            } catch (error) {
+              console.log("${{ github.event.pull_request.user.login }} is not a collaborator. Requiring Manual Approval to run PR Checks.")
+              return "manual-approval"
+            }
   test:
     runs-on: ubuntu-latest
     strategy:
